@@ -21,6 +21,8 @@
     <string name="button_ledring_contentDescription">LED ring button</string>
     <string name="button_headlight_contentDescription">Headlight button</string>
     <string name="button_buzzer_contentDescription">Buzzer button</string>
+    <string name="button_cameraView_contentDescription">Camera view button</string>
+    <string name="button_autonomousFlight_contentDescription">Autonomous Flight button</string>
 
     <!-- Connection settings -->
     <string name="preferences_radio_title">Connection settings</string>

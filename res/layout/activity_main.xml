@@ -120,8 +120,9 @@
         android:layout_height="wrap_content"
         android:layout_marginLeft="6dp"
         android:layout_marginRight="6dp"
-        android:layout_below="@+id/imageButton_settings"
-        android:layout_centerHorizontal="true"
+        android:layout_alignBottom="@+id/button_buzzerSound"
+        android:layout_toLeftOf="@id/button_buzzerSound"
+        android:layout_toStartOf="@id/button_buzzerSound"
         android:background="@drawable/custom_button_action"
         android:src="@drawable/ic_headlight"
         android:elevation="2dp"
@@ -134,14 +135,41 @@
         android:layout_height="wrap_content"
         android:layout_marginLeft="6dp"
         android:layout_marginRight="6dp"
-        android:layout_alignBottom="@+id/button_headLight"
-        android:layout_toRightOf="@id/button_headLight"
-        android:layout_toEndOf="@id/button_headLight"
+        android:layout_below="@+id/imageButton_settings"
+        android:layout_centerHorizontal="true"
         android:background="@drawable/custom_button_action"
         android:src="@drawable/ic_volume_up_black"
         android:elevation="2dp"
         android:onClick="playBuzzerSound"
         android:contentDescription="@string/button_buzzer_contentDescription"/>
+
+    <ImageButton
+        android:id="@+id/button_cameraView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_alignBottom="@+id/button_buzzerSound"
+        android:layout_toRightOf="@id/button_buzzerSound"
+        android:layout_toEndOf="@id/button_buzzerSound"
+        android:background="@drawable/custom_button_action"
+        android:src="@drawable/ic_camera_view"
+        android:elevation="2dp"
+        android:contentDescription="@string/button_cameraView_contentDescription"/>
+
+    <ImageButton
+        android:id="@+id/button_autonomousFlight"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="6dp"
+        android:layout_marginRight="6dp"
+        android:layout_alignBottom="@+id/button_cameraView"
+        android:layout_toRightOf="@id/button_cameraView"
+        android:layout_toEndOf="@id/button_cameraView"
+        android:background="@drawable/custom_button_action"
+        android:src="@drawable/ic_autonomous_flight"
+        android:elevation="2dp"
+        android:contentDescription="@string/button_autonomousFlight_contentDescription"/>
 
     <se.bitcraze.crazyfliecontrol2.FlightDataView
         android:id="@+id/flightdataview"
