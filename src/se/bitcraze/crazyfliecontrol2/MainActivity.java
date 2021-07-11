@@ -50,7 +50,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -61,6 +60,7 @@ import android.location.LocationManager;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.media.SoundPool.OnLoadCompleteListener;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -116,11 +116,15 @@ public class MainActivity extends Activity {
     private ImageButton mRingEffectButton;
     private ImageButton mHeadlightButton;
     private ImageButton mBuzzerSoundButton;
+    private ImageButton mCameraViewButton;
     private File mCacheDir;
 
     private TextView mTextView_battery;
     private TextView mTextView_linkQuality;
     private MainPresenter mPresenter;
+
+    private boolean cameraViewEnabled;
+    private WifiManager wifiManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -164,6 +168,13 @@ public class MainActivity extends Activity {
         mRingEffectButton = (ImageButton) findViewById(R.id.button_ledRing);
         mHeadlightButton = (ImageButton) findViewById(R.id.button_headLight);
         mBuzzerSoundButton = (ImageButton) findViewById(R.id.button_buzzerSound);
+        mCameraViewButton = (ImageButton) findViewById(R.id.button_cameraView);
+        mCameraViewButton.setEnabled(true);
+        mCameraViewButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                setCameraView();
+            }
+        });
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(this.getPackageName()+".USB_PERMISSION");
@@ -174,6 +185,34 @@ public class MainActivity extends Activity {
         initializeSounds();
 
         setCacheDir();
+
+        // Set camera view to false
+        this.setCameraViewEnabled(false);
+
+        // Turn on Wi-Fi to enable video streaming
+        this.turnWiFiOn();
+
+        Thread udpConnection = new Thread(new UdpListener(this.wifiManager));
+        udpConnection.start();
+    }
+
+    // Camera view related methods
+    public void setCameraViewEnabled(boolean enabled) {
+        this.cameraViewEnabled = enabled;
+    }
+
+    public boolean getCameraViewEnabled() {
+        return this.cameraViewEnabled;
+    }
+
+    protected void turnWiFiOn() {
+        // Initialize Wi-Fi manager and set Wi-Fi on
+        this.wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (!wifiManager.isWifiEnabled() && this.getCameraViewEnabled()) {
+            Toast.makeText(getApplicationContext(), "Turning on Wi-Fi to enable video streaming.",
+                    Toast.LENGTH_SHORT).show();
+            wifiManager.setWifiEnabled(true);
+        }
     }
 
     private void initializeSounds() {
@@ -383,6 +422,8 @@ public class MainActivity extends Activity {
         mRingEffectButton.setEnabled(false);
         mHeadlightButton.setEnabled(false);
         mBuzzerSoundButton.setEnabled(false);
+        // Enable camera view and autonomous flight buttons
+        mCameraViewButton.setEnabled(true);
         if (mPreferences.getBoolean(PreferencesActivity.KEY_PREF_IMMERSIVE_MODE_BOOL, false)) {
             setHideyBar();
         }
@@ -648,6 +689,14 @@ public class MainActivity extends Activity {
         }
     }
 
+    // On camera view button click
+    public void setCameraView() {
+        this.setCameraViewEnabled(!this.getCameraViewEnabled());
+        if (this.getCameraViewEnabled()) {
+            this.turnWiFiOn();
+        }
+    }
+
     public MainPresenter getPresenter() {
         return mPresenter;
     }
@@ -768,10 +817,20 @@ public class MainActivity extends Activity {
         });
     }
 
+    public void setCameraViewButtonEnablement(final boolean enabled) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mCameraViewButton.setEnabled(enabled);
+            }
+        });
+    }
+
     public void disableButtonsAndResetBatteryLevel() {
         setRingEffectButtonEnablement(false);
         setHeadlightButtonEnablement(false);
         setBuzzerSoundButtonEnablement(false);
+        setCameraViewButtonEnablement(false);
         setBatteryLevel(-1.0f);
     }
 }
