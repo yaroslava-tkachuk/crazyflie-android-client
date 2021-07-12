@@ -79,6 +79,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -125,6 +126,9 @@ public class MainActivity extends Activity {
 
     private boolean cameraViewEnabled;
     private WifiManager wifiManager;
+    private CameraStreamer cameraStreamer;
+    private ScrollView mCameraScrollView;
+    private ImageView mCameraImageView;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -192,8 +196,11 @@ public class MainActivity extends Activity {
         // Turn on Wi-Fi to enable video streaming
         this.turnWiFiOn();
 
-        Thread udpConnection = new Thread(new UdpListener(this.wifiManager));
-        udpConnection.start();
+        cameraStreamer = new CameraStreamer(this);
+        mCameraScrollView = (ScrollView) findViewById(R.id.camera_scrollView);
+        mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
+        Thread cameraStream = new Thread(cameraStreamer);
+        cameraStream.start();
     }
 
     // Camera view related methods
@@ -213,6 +220,10 @@ public class MainActivity extends Activity {
                     Toast.LENGTH_SHORT).show();
             wifiManager.setWifiEnabled(true);
         }
+    }
+
+    public ImageView getCameraImageView() {
+        return this.mCameraImageView;
     }
 
     private void initializeSounds() {
@@ -304,8 +315,8 @@ public class MainActivity extends Activity {
 
             @Override
             public void onClick(View v) {
-              Intent intent = new Intent(MainActivity.this, PreferencesActivity.class);
-              startActivity(intent);
+                Intent intent = new Intent(MainActivity.this, PreferencesActivity.class);
+                startActivity(intent);
             }
         });
     }
@@ -609,8 +620,8 @@ public class MainActivity extends Activity {
                 }
                 break;
             case 1:
-                    // TODO: show warning if no game pad is found?
-                    mController = mGamepadController;
+                // TODO: show warning if no game pad is found?
+                mController = mGamepadController;
                 break;
             default:
                 break;
