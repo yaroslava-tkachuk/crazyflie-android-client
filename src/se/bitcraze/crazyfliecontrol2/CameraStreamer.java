@@ -4,15 +4,12 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
-import android.util.Base64;
 import android.util.Log;
 import android.widget.ImageView;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
-import java.io.File;
 import java.net.Socket;
-import java.nio.file.Files;
 import java.util.Arrays;
 
 public class CameraStreamer implements Runnable {
@@ -38,13 +35,14 @@ public class CameraStreamer implements Runnable {
                 return i;
             }
         }
+
         return -1;
     }
 
-    public static byte[] concatenateBuffers(byte[] buffer0, byte[] buffer1) {
-        byte[] result = new byte[buffer0.length + buffer1.length];
+    public static byte[] concatenateBuffers(byte[] buffer0, byte[] buffer1, int buffer1Stop) {
+        byte[] result = new byte[buffer0.length + buffer1Stop];
         System.arraycopy(buffer0, 0, result, 0, buffer0.length);
-        System.arraycopy(buffer1, 0, result, buffer0.length, buffer1.length);
+        System.arraycopy(buffer1, 0, result, buffer0.length, buffer1Stop);
 
         return result;
     }
@@ -55,36 +53,52 @@ public class CameraStreamer implements Runnable {
         boolean run = true;
         byte[] imageBuffer = new byte[0];
         byte[] buffer = new byte[this.imageSizeBytes];
-        byte[] frame = new byte[0];
+        int bytesRead = 0;
+        byte[] frame;
         try {
             Socket socket = new Socket(this.ipAddress, this.port);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             while (run) {
-                inputStream.read(buffer, 0, this.imageSizeBytes);
+                // Read data from socket
+                bytesRead = inputStream.read(buffer, 0, this.imageSizeBytes);
+                imageBuffer = concatenateBuffers(imageBuffer, buffer, bytesRead);
 
-                imageBuffer = concatenateBuffers(imageBuffer, buffer);
-
+                // Find start and end of JPEG image frame markers
                 int startFrameIdx = findFrameSequence(imageBuffer, this.frameStart);
                 int endFrameIdx = findFrameSequence(imageBuffer, this.frameEnd);
 
+                // If end of frame marker precedes start of frame marker, cut off the buffer before
+                // start of frame marker
                 if( (endFrameIdx > -1) && (startFrameIdx > -1) && (endFrameIdx < startFrameIdx) ) {
                     imageBuffer = Arrays.copyOfRange(imageBuffer, startFrameIdx, imageBuffer.length);
                 }
 
+                // If buffer contains both start and end of frame markers and start of frame marker
+                // precedes end of frame marker, prepare and render an image
                 if( (startFrameIdx > -1) && (endFrameIdx > -1) && (endFrameIdx > startFrameIdx) ) {
                     frame = Arrays.copyOfRange(imageBuffer, startFrameIdx, endFrameIdx+2);
                     imageBuffer = Arrays.copyOfRange(imageBuffer, endFrameIdx+2, imageBuffer.length);
 
-                    Bitmap imageBmp = BitmapFactory.decodeByteArray(frame, 0, frame.length);
-                    ImageView cameraImageView = this.mainActivity.getCameraImageView();
-                    cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageBmp,
-                        cameraImageView.getWidth(), cameraImageView.getHeight(), false));
-                }
+                    // Create a bitmap from byte array
+                    final Bitmap imageBmp = BitmapFactory.decodeByteArray(frame, 0, frame.length);
+                    final ImageView cameraImageView = this.mainActivity.getCameraImageView();
 
-//
+                    // Render bitmap
+                    this.mainActivity.runOnUiThread(new Runnable() {
+                        public void run() {
+                            try {
+                                cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageBmp,
+                                    cameraImageView.getWidth(), cameraImageView.getHeight(), false));
+                            }
+                            catch(Exception e) {
+                                Log.e("Image rendering error", "Huston, we have a problem: ", e);
+                            }
+                        }
+                    });
+                }
             }
         } catch (Exception e) {
-            Log.e("TCP client Error", "error: ", e);
+            Log.e("TCP connection error", "Huston, we have problem: ", e);
             run = false;
         }
     }

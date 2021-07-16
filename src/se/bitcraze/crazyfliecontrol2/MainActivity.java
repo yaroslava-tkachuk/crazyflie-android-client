@@ -197,7 +197,6 @@ public class MainActivity extends Activity {
         this.turnWiFiOn();
 
         cameraStreamer = new CameraStreamer(this);
-        mCameraScrollView = (ScrollView) findViewById(R.id.camera_scrollView);
         mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
         Thread cameraStream = new Thread(cameraStreamer);
         cameraStream.start();
