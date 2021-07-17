@@ -87,6 +87,8 @@ import android.widget.Toast;
 
 import com.MobileAnarchy.Android.Widgets.Joystick.JoystickView;
 
+import org.opencv.android.OpenCVLoader;
+
 public class MainActivity extends Activity {
 
     private static final String LOG_TAG = "CrazyflieControl";

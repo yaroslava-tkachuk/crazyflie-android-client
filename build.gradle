@@ -62,8 +62,15 @@ android {
         exclude 'META-INF/NOTICE'
     }
     defaultConfig {
-        minSdkVersion 14
+        minSdkVersion 16
         targetSdkVersion 28
+    }
+    sourceSets {
+        main {
+            jni {
+                srcDirs 'jni', 'src/main/jniLibs'
+            }
+        }
     }
 }
 
@@ -72,4 +79,5 @@ dependencies {
     implementation 'org.slf4j:slf4j-android:1.6.1-RC1'
     implementation 'com.fasterxml.jackson.core:jackson-core:2.6.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.6.3'
+    implementation project(path: ':openCVLibrary3414')
 }
