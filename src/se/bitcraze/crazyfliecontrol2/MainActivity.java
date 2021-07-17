@@ -60,6 +60,7 @@ import android.location.LocationManager;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.media.SoundPool.OnLoadCompleteListener;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -124,11 +125,12 @@ public class MainActivity extends Activity {
     private TextView mTextView_linkQuality;
     private MainPresenter mPresenter;
 
-    private boolean cameraViewEnabled;
-    private WifiManager wifiManager;
-    private CameraStreamer cameraStreamer;
-    private ScrollView mCameraScrollView;
+    private boolean cameraStreamEnabled;
     private ImageView mCameraImageView;
+    private WifiManager wifiManager;
+    private String networkSSID  = "Bitcraze AI-deck example";
+    private CameraStreamer cameraStreamer;
+    private Thread cameraStream;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -191,38 +193,79 @@ public class MainActivity extends Activity {
         setCacheDir();
 
         // Set camera view to false
-        this.setCameraViewEnabled(false);
+        this.setCameraStreamEnabled(false);
 
-        // Turn on Wi-Fi to enable video streaming
-        this.turnWiFiOn();
-
-        cameraStreamer = new CameraStreamer(this);
-        mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
-        Thread cameraStream = new Thread(cameraStreamer);
-        cameraStream.start();
-    }
-
-    // Camera view related methods
-    public void setCameraViewEnabled(boolean enabled) {
-        this.cameraViewEnabled = enabled;
-    }
-
-    public boolean getCameraViewEnabled() {
-        return this.cameraViewEnabled;
-    }
-
-    protected void turnWiFiOn() {
-        // Initialize Wi-Fi manager and set Wi-Fi on
+        // Initialize Wi-Fi connection objects
         this.wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        if (!wifiManager.isWifiEnabled() && this.getCameraViewEnabled()) {
-            Toast.makeText(getApplicationContext(), "Turning on Wi-Fi to enable video streaming.",
-                    Toast.LENGTH_SHORT).show();
-            wifiManager.setWifiEnabled(true);
-        }
+
+        // Initialize video streaming objects
+        mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
+        cameraStreamer = new CameraStreamer(this);
+    }
+
+    // Video streaming methods
+    public boolean getCameraStreamEnabled() {
+        return this.cameraStreamEnabled;
     }
 
     public ImageView getCameraImageView() {
         return this.mCameraImageView;
+    }
+
+    public Thread getCameraStream() {
+        return this.cameraStream;
+    }
+
+    public void setCameraStreamEnabled(boolean enabled) {
+        this.cameraStreamEnabled = enabled;
+    }
+
+    protected void turnWiFiOn() {
+        if (!this.wifiManager.isWifiEnabled()) {
+            Toast.makeText(getApplicationContext(),
+                    "Turning on Wi-Fi to enable video streaming.", Toast.LENGTH_SHORT).show();
+            this.wifiManager.setWifiEnabled(true);
+        }
+    }
+
+    public void enableDroneNetwork() {
+        List<WifiConfiguration> list = this.wifiManager.getConfiguredNetworks();
+        for(WifiConfiguration wifiConfig : list) {
+            if(wifiConfig.SSID != null && wifiConfig.SSID.equals("\"" + networkSSID + "\"")) {
+                this.wifiManager.disconnect();
+                this.wifiManager.enableNetwork(wifiConfig.networkId, true);
+                this.wifiManager.reconnect();
+
+                break;
+            }
+        }
+    }
+
+    public void connectToDroneNetwork() {
+        this.turnWiFiOn();
+        WifiConfiguration wifiConfiguration = new WifiConfiguration();
+        wifiConfiguration.SSID = "\"" + this.networkSSID + "\"";
+        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        wifiManager.addNetwork(wifiConfiguration);
+        this.enableDroneNetwork();
+    }
+
+    // On camera view button click
+    public void setCameraView() {
+        this.setCameraStreamEnabled(!this.getCameraStreamEnabled());
+        if (this.getCameraStreamEnabled()) {
+            this.connectToDroneNetwork();
+            // Wait 3 seconds for the connection to get established
+            long startTime = System.currentTimeMillis();
+            while (System.currentTimeMillis() - startTime < 3000) {
+                continue;
+            }
+            this.cameraStream = new Thread(this.cameraStreamer);
+            this.cameraStream.start();
+        }
+        else {
+            this.cameraStream.interrupt();
+        }
     }
 
     private void initializeSounds() {
@@ -696,14 +739,6 @@ public class MainActivity extends Activity {
     public void playBuzzerSound(View view) {
         if (mPresenter != null) {
             mPresenter.runAltAction("sound.effect:10");
-        }
-    }
-
-    // On camera view button click
-    public void setCameraView() {
-        this.setCameraViewEnabled(!this.getCameraViewEnabled());
-        if (this.getCameraViewEnabled()) {
-            this.turnWiFiOn();
         }
     }
 

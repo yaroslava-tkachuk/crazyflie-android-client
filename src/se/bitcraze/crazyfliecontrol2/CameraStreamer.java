@@ -6,6 +6,7 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.util.Log;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -14,6 +15,7 @@ import java.util.Arrays;
 
 public class CameraStreamer implements Runnable {
 
+    private boolean running = false;
     private int port = 5000;
     private String ipAddress = "192.168.4.1";
     private int imageSizeBytes = 512;
@@ -23,6 +25,14 @@ public class CameraStreamer implements Runnable {
 
     CameraStreamer(MainActivity mainActivity) {
         this.mainActivity = mainActivity;
+    }
+
+    public boolean isRunning() {
+        return this.isRunning();
+    }
+
+    public void stopRunning() {
+        this.running = false;
     }
 
     private static int findFrameSequence(byte[] buffer, byte[] searchSequence) {
@@ -53,12 +63,13 @@ public class CameraStreamer implements Runnable {
         boolean run = true;
         byte[] imageBuffer = new byte[0];
         byte[] buffer = new byte[this.imageSizeBytes];
-        int bytesRead = 0;
+        int bytesRead;
         byte[] frame;
         try {
             Socket socket = new Socket(this.ipAddress, this.port);
+            socket.setSoTimeout(3000);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            while (run) {
+            while (!Thread.interrupted() && run) {
                 // Read data from socket
                 bytesRead = inputStream.read(buffer, 0, this.imageSizeBytes);
                 imageBuffer = concatenateBuffers(imageBuffer, buffer, bytesRead);
@@ -99,6 +110,12 @@ public class CameraStreamer implements Runnable {
             }
         } catch (Exception e) {
             Log.e("TCP connection error", "Huston, we have problem: ", e);
+            this.mainActivity.runOnUiThread(new Runnable() {
+                public void run() {
+                    Toast.makeText(mainActivity.getApplicationContext(), "Lost connection with the camera.", Toast.LENGTH_SHORT).show();
+                }
+            });
+            this.mainActivity.setCameraStreamEnabled(false);
             run = false;
         }
     }
