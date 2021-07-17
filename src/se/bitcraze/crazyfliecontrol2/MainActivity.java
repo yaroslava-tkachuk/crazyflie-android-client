@@ -28,6 +28,8 @@
 package se.bitcraze.crazyfliecontrol2;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 
@@ -87,7 +89,10 @@ import android.widget.Toast;
 
 import com.MobileAnarchy.Android.Widgets.Joystick.JoystickView;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.objdetect.CascadeClassifier;
 
 public class MainActivity extends Activity {
 
@@ -131,6 +136,7 @@ public class MainActivity extends Activity {
     private ImageView mCameraImageView;
     private WifiManager wifiManager;
     private String networkSSID  = "Bitcraze AI-deck example";
+    private CascadeClassifier cascadeClassifier;
     private CameraStreamer cameraStreamer;
     private Thread cameraStream;
 
@@ -203,6 +209,32 @@ public class MainActivity extends Activity {
         // Initialize video streaming objects
         mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
         cameraStreamer = new CameraStreamer(this);
+        OpenCVLoader.initDebug();
+        this.initializeOpenCVDependencies();
+    }
+
+    private void initializeOpenCVDependencies() {
+        try {
+            // Copy haarcascade_frontalface_alt2 resource into a temporary file, so OpenCV can load it
+            InputStream inputStream = this.getResources().openRawResource(R.raw.haarcascade_frontalface_alt2);
+            File cascadeDir = this.getDir("cascade", Context.MODE_PRIVATE);
+            File mCascadeFile = new File(cascadeDir, "haarcascade_frontalface_alt2.xml");
+            FileOutputStream fileOutputStream = new FileOutputStream(mCascadeFile);
+
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                fileOutputStream.write(buffer, 0, bytesRead);
+            }
+            // Close streams
+            inputStream.close();
+            fileOutputStream.close();
+
+            // Load the cascade classifier resources
+            this.cascadeClassifier = new CascadeClassifier(mCascadeFile.getAbsolutePath());
+        } catch (Exception e) {
+            Log.e("OpenCV error", "Failed to load cascade classifier resources.", e);
+        }
     }
 
     // Video streaming methods
@@ -216,6 +248,10 @@ public class MainActivity extends Activity {
 
     public Thread getCameraStream() {
         return this.cameraStream;
+    }
+
+    public CascadeClassifier getCascadeClassifier() {
+        return this.cascadeClassifier;
     }
 
     public void setCameraStreamEnabled(boolean enabled) {

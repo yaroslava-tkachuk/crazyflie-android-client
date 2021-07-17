@@ -8,14 +8,25 @@ import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfRect;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
+
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
+import java.io.IOException;
 import java.net.Socket;
 import java.util.Arrays;
 
 public class CameraStreamer implements Runnable {
 
-    private boolean running = false;
+    Socket socket;
     private int port = 5000;
     private String ipAddress = "192.168.4.1";
     private int imageSizeBytes = 512;
@@ -25,14 +36,8 @@ public class CameraStreamer implements Runnable {
 
     CameraStreamer(MainActivity mainActivity) {
         this.mainActivity = mainActivity;
-    }
+        OpenCVLoader.initDebug();
 
-    public boolean isRunning() {
-        return this.isRunning();
-    }
-
-    public void stopRunning() {
-        this.running = false;
     }
 
     private static int findFrameSequence(byte[] buffer, byte[] searchSequence) {
@@ -66,7 +71,7 @@ public class CameraStreamer implements Runnable {
         int bytesRead;
         byte[] frame;
         try {
-            Socket socket = new Socket(this.ipAddress, this.port);
+            this.socket = new Socket(this.ipAddress, this.port);
             socket.setSoTimeout(3000);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
             while (!Thread.interrupted() && run) {
@@ -94,11 +99,32 @@ public class CameraStreamer implements Runnable {
                     final Bitmap imageBmp = BitmapFactory.decodeByteArray(frame, 0, frame.length);
                     final ImageView cameraImageView = this.mainActivity.getCameraImageView();
 
+
+                    // Convert Bitmap into Mat
+                    Mat imageMat = new Mat(imageBmp.getHeight(), imageBmp.getWidth(), CvType.CV_8UC4);
+                    Utils.bitmapToMat(imageBmp, imageMat);
+                    // Detect faces
+                    MatOfRect faces = new MatOfRect();
+                    if (this.mainActivity.getCascadeClassifier() != null) {
+                        this.mainActivity.getCascadeClassifier().detectMultiScale(imageMat, faces);
+                    }
+
+                    // Draw rectangles around faces
+                    Rect[] facesRectangles = faces.toArray();
+                    for (int i = 0; i < facesRectangles.length; i++)
+                        Imgproc.rectangle(imageMat, facesRectangles[i].tl(), facesRectangles[i].br(), new Scalar(0, 255, 0, 255), 3);
+
+                    // Convert Mat to Bitmap
+                    Bitmap imageWithFaces = imageBmp;
+                    Utils.matToBitmap(imageMat, imageWithFaces);
+                    
+                    final Bitmap imageRender = imageWithFaces;
+
                     // Render bitmap
                     this.mainActivity.runOnUiThread(new Runnable() {
                         public void run() {
                             try {
-                                cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageBmp,
+                                cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageRender,
                                     cameraImageView.getWidth(), cameraImageView.getHeight(), false));
                             }
                             catch(Exception e) {
@@ -116,6 +142,11 @@ public class CameraStreamer implements Runnable {
                 }
             });
             this.mainActivity.setCameraStreamEnabled(false);
+            try {
+                this.socket.close();
+            } catch (IOException ioException) {
+                Log.e("Socket closing error", "Huston, we have problem: ", e);
+            }
             run = false;
         }
     }
