@@ -136,7 +136,7 @@ public class MainActivity extends Activity {
     private ImageView mCameraImageView;
     private WifiManager wifiManager;
     private String networkSSID  = "Bitcraze AI-deck example";
-    private CascadeClassifier cascadeClassifier;
+    private FaceDetector faceDetector;
     private CameraStreamer cameraStreamer;
     private Thread cameraStream;
 
@@ -183,12 +183,6 @@ public class MainActivity extends Activity {
         mHeadlightButton = (ImageButton) findViewById(R.id.button_headLight);
         mBuzzerSoundButton = (ImageButton) findViewById(R.id.button_buzzerSound);
         mCameraViewButton = (ImageButton) findViewById(R.id.button_cameraView);
-        mCameraViewButton.setEnabled(true);
-        mCameraViewButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                setCameraView();
-            }
-        });
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(this.getPackageName()+".USB_PERMISSION");
@@ -209,31 +203,17 @@ public class MainActivity extends Activity {
         // Initialize video streaming objects
         mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
         cameraStreamer = new CameraStreamer(this);
-        OpenCVLoader.initDebug();
-        this.initializeOpenCVDependencies();
-    }
-
-    private void initializeOpenCVDependencies() {
         try {
-            // Copy haarcascade_frontalface_alt2 resource into a temporary file, so OpenCV can load it
-            InputStream inputStream = this.getResources().openRawResource(R.raw.haarcascade_frontalface_alt2);
-            File cascadeDir = this.getDir("cascade", Context.MODE_PRIVATE);
-            File mCascadeFile = new File(cascadeDir, "haarcascade_frontalface_alt2.xml");
-            FileOutputStream fileOutputStream = new FileOutputStream(mCascadeFile);
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                fileOutputStream.write(buffer, 0, bytesRead);
-            }
-            // Close streams
-            inputStream.close();
-            fileOutputStream.close();
-
-            // Load the cascade classifier resources
-            this.cascadeClassifier = new CascadeClassifier(mCascadeFile.getAbsolutePath());
-        } catch (Exception e) {
-            Log.e("OpenCV error", "Failed to load cascade classifier resources.", e);
+            this.faceDetector = new FaceDetector(this);
+            mCameraViewButton.setEnabled(true);
+            mCameraViewButton.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    setCameraView();
+                }
+            });
+        }
+        catch(Exception e) {
+            Toast.makeText(this.getApplicationContext(), "Failed to load OpenCV resources.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -250,8 +230,8 @@ public class MainActivity extends Activity {
         return this.cameraStream;
     }
 
-    public CascadeClassifier getCascadeClassifier() {
-        return this.cascadeClassifier;
+    public FaceDetector getFaceDetector() {
+        return this.faceDetector;
     }
 
     public void setCameraStreamEnabled(boolean enabled) {

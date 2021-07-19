@@ -33,6 +33,8 @@ public class CameraStreamer implements Runnable {
     private byte frameStart[] = {(byte) 0xff, (byte) 0xd8};
     private byte frameEnd[] = {(byte) 0xff, (byte) 0xd9};
     MainActivity mainActivity;
+    private boolean run = false;
+    private long startTime = 0;
 
     CameraStreamer(MainActivity mainActivity) {
         this.mainActivity = mainActivity;
@@ -62,19 +64,74 @@ public class CameraStreamer implements Runnable {
         return result;
     }
 
+    private Bitmap processImage(byte[] frame){
+        // Create a bitmap from byte array
+        Bitmap imageBmp = BitmapFactory.decodeByteArray(frame, 0, frame.length);
+
+        // Convert Bitmap into Mat
+        Mat imageMat = new Mat(imageBmp.getHeight(), imageBmp.getWidth(), CvType.CV_8UC4);
+        Utils.bitmapToMat(imageBmp, imageMat);
+
+        // Detect and draw face
+        imageMat = this.mainActivity.getFaceDetector().detectFace(imageMat);
+//        imageMat = this.mainActivity.getFaceDetector().detectFrontalFace(imageMat);
+
+        // Convert Mat to Bitmap
+        Bitmap imageWithFace = imageBmp;
+        Utils.matToBitmap(imageMat, imageWithFace);
+
+        return imageWithFace;
+    }
+
+    private void renderImage(final Bitmap imageToRender){
+        final ImageView cameraImageView = this.mainActivity.getCameraImageView();
+
+        this.mainActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                try {
+                    cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageToRender,
+                            cameraImageView.getWidth(), cameraImageView.getHeight(), false));
+                }
+                catch(Exception e) {
+                    Log.e("Image rendering error", "Huston, we have a problem: ", e);
+                }
+            }
+        });
+    }
+
+    private void handleConnectionError(Exception e){
+        // Log error message
+        Log.e("TCP connection error", "Huston, we have problem: ", e);
+        this.mainActivity.runOnUiThread(new Runnable() {
+            public void run() {
+                Toast.makeText(mainActivity.getApplicationContext(), "Lost connection with the camera.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Set flags to false
+        this.mainActivity.setCameraStreamEnabled(false);
+        try {
+            this.socket.close();
+        } catch (IOException ioException) {
+            Log.e("Socket closing error", "Huston, we have problem: ", e);
+        }
+        this.run = false;
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void run() {
-        boolean run = true;
+        this.run = true;
+        this.startTime = System.currentTimeMillis();
         byte[] imageBuffer = new byte[0];
         byte[] buffer = new byte[this.imageSizeBytes];
-        int bytesRead;
         byte[] frame;
+        int bytesRead;
         try {
             this.socket = new Socket(this.ipAddress, this.port);
-            socket.setSoTimeout(3000);
-            DataInputStream inputStream = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            while (!Thread.interrupted() && run) {
+            this.socket.setSoTimeout(3000);
+            DataInputStream inputStream = new DataInputStream(new BufferedInputStream(this.socket.getInputStream()));
+            while (!Thread.interrupted() && this.run) {
                 // Read data from socket
                 bytesRead = inputStream.read(buffer, 0, this.imageSizeBytes);
                 imageBuffer = concatenateBuffers(imageBuffer, buffer, bytesRead);
@@ -95,59 +152,16 @@ public class CameraStreamer implements Runnable {
                     frame = Arrays.copyOfRange(imageBuffer, startFrameIdx, endFrameIdx+2);
                     imageBuffer = Arrays.copyOfRange(imageBuffer, endFrameIdx+2, imageBuffer.length);
 
-                    // Create a bitmap from byte array
-                    final Bitmap imageBmp = BitmapFactory.decodeByteArray(frame, 0, frame.length);
-                    final ImageView cameraImageView = this.mainActivity.getCameraImageView();
-
-
-                    // Convert Bitmap into Mat
-                    Mat imageMat = new Mat(imageBmp.getHeight(), imageBmp.getWidth(), CvType.CV_8UC4);
-                    Utils.bitmapToMat(imageBmp, imageMat);
-                    // Detect faces
-                    MatOfRect faces = new MatOfRect();
-                    if (this.mainActivity.getCascadeClassifier() != null) {
-                        this.mainActivity.getCascadeClassifier().detectMultiScale(imageMat, faces);
+                    // Detect face and render image every 100 ms
+                    if(System.currentTimeMillis() - startTime >=  100){
+                        final Bitmap imageToRender = this.processImage(frame);
+                        this.renderImage(imageToRender);
+                        this.startTime = System.currentTimeMillis();
                     }
-
-                    // Draw rectangles around faces
-                    Rect[] facesRectangles = faces.toArray();
-                    for (int i = 0; i < facesRectangles.length; i++)
-                        Imgproc.rectangle(imageMat, facesRectangles[i].tl(), facesRectangles[i].br(), new Scalar(0, 255, 0, 255), 3);
-
-                    // Convert Mat to Bitmap
-                    Bitmap imageWithFaces = imageBmp;
-                    Utils.matToBitmap(imageMat, imageWithFaces);
-                    
-                    final Bitmap imageRender = imageWithFaces;
-
-                    // Render bitmap
-                    this.mainActivity.runOnUiThread(new Runnable() {
-                        public void run() {
-                            try {
-                                cameraImageView.setImageBitmap(Bitmap.createScaledBitmap(imageRender,
-                                    cameraImageView.getWidth(), cameraImageView.getHeight(), false));
-                            }
-                            catch(Exception e) {
-                                Log.e("Image rendering error", "Huston, we have a problem: ", e);
-                            }
-                        }
-                    });
                 }
             }
         } catch (Exception e) {
-            Log.e("TCP connection error", "Huston, we have problem: ", e);
-            this.mainActivity.runOnUiThread(new Runnable() {
-                public void run() {
-                    Toast.makeText(mainActivity.getApplicationContext(), "Lost connection with the camera.", Toast.LENGTH_SHORT).show();
-                }
-            });
-            this.mainActivity.setCameraStreamEnabled(false);
-            try {
-                this.socket.close();
-            } catch (IOException ioException) {
-                Log.e("Socket closing error", "Huston, we have problem: ", e);
-            }
-            run = false;
+            this.handleConnectionError(e);
         }
     }
 }
