@@ -1,15 +1,11 @@
 package se.bitcraze.crazyfliecontrol2;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.util.Log;
-import android.widget.Toast;
 
 import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
-import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -26,9 +22,12 @@ public class FaceDetector {
     private CascadeClassifier frontalFacesClassifier;
     private CascadeClassifier profileFacesClassifier;
     private CascadeClassifier eyesClassifier;
-    private Scalar color = new Scalar(49, 195, 39);
+    private Scalar green = new Scalar(49, 195, 39);
+    private Scalar red = new Scalar(158, 0, 0);
     private int thickness = 3;
     private MainActivity mainActivity;
+    private Rect face;
+    double[] circle; // circle (x, y), radius
     private boolean frontalFaceDetected = false;
     private boolean leftProfileFaceDetected = false;
     private boolean rightProfileFaceDetected = false;
@@ -48,6 +47,14 @@ public class FaceDetector {
 
     public boolean getEyesDetected() {
         return this.eyesDetected;
+    }
+
+    public Rect getFace() {
+        return this.face;
+    }
+
+    public double[] getCircle() {
+        return this.circle;
     }
 
     public FaceDetector(MainActivity mainActivity) throws IOException {
@@ -89,8 +96,9 @@ public class FaceDetector {
 
         if (!frontalFaces.empty()) {
             Rect frontalFace = frontalFaces.toArray()[0];
-            Imgproc.rectangle(imageMat, frontalFace.tl(), frontalFace.br(), this.color, this.thickness);
+            Imgproc.rectangle(imageMat, frontalFace.tl(), frontalFace.br(), this.green, this.thickness);
             this.frontalFaceDetected = true;
+            this.face = frontalFace;
         }
 
         return imageMat;
@@ -102,8 +110,9 @@ public class FaceDetector {
 
         if(!leftProfileFaces.empty()) {
             Rect leftProfileFace = leftProfileFaces.toArray()[0];
+            Imgproc.rectangle(imageMat, leftProfileFace.tl(), leftProfileFace.br(), this.green, this.thickness);
             this.leftProfileFaceDetected = true;
-            Imgproc.rectangle(imageMat, leftProfileFace.tl(), leftProfileFace.br(), this.color, this.thickness);
+            this.face = leftProfileFace;
         }
 
         return imageMat;
@@ -120,8 +129,9 @@ public class FaceDetector {
             Rect rightProfileFace = rightProfileFaces.toArray()[0];
             // Flip detected right profile face coordinates back to original state
             rightProfileFace.x = (int) imageMat.size().width - rightProfileFace.x - rightProfileFace.width;
+            Imgproc.rectangle(imageMat, rightProfileFace.tl(), rightProfileFace.br(), this.green, this.thickness);
             this.rightProfileFaceDetected = true;
-            Imgproc.rectangle(imageMat, rightProfileFace.tl(), rightProfileFace.br(), this.color, this.thickness);
+            this.face = rightProfileFace;
         }
 
         return imageMat;
@@ -135,8 +145,8 @@ public class FaceDetector {
     }
 
     public Mat detectFace(Mat imageMat) {
+        this.face = null;
         imageMat = this.detectFrontalFace(imageMat);
-
         if(!this.frontalFaceDetected) {
             imageMat = this.detectLeftProfileFace(imageMat);
             if(!this.leftProfileFaceDetected){
@@ -156,10 +166,37 @@ public class FaceDetector {
             Rect[] eyesArray = eyes.toArray();
             this.eyesDetected = true;
             for(int i = 0; i < eyesArray.length; i++){
-                Imgproc.rectangle(imageMat, eyesArray[i].tl(), eyesArray[i].br(), this.color, this.thickness);
+                Imgproc.rectangle(imageMat, eyesArray[i].tl(), eyesArray[i].br(), this.green, this.thickness);
             }
         }
 
         return  imageMat;
+    }
+
+    public Mat detectCircle(Mat image){
+        this.circle = null;
+        // Convert image to grayscale.
+        Mat gray = new Mat();
+        Imgproc.cvtColor(image, gray, Imgproc.COLOR_RGBA2GRAY);
+        // Blur the image
+        Mat blurredImage = new Mat();
+        Imgproc.medianBlur(gray, blurredImage, 5);
+        // Detect circles
+        Mat circles = new Mat();
+        Imgproc.HoughCircles(blurredImage, circles, Imgproc.HOUGH_GRADIENT, 1, 60, 200, 40, 0, 0);
+        if(circles.cols() > 0){
+            this.circle = circles.get(0, 0);
+            Point center = new Point(Math.round(this.circle[0]), Math.round(this.circle[1]));
+            // Draw circle center.
+            Imgproc.circle(image, center, 1, this.green, 3, 8, 0);
+            // Draw circle outline.
+            int radius = (int) Math.round(this.circle[2]);
+            Imgproc.circle(image, center, radius, this.green, 3, 8, 0);
+            // Draw image center.
+            Point imageCenter = new Point(Math.round(image.size().width/2), Math.round(image.size().height/2));
+            Imgproc.circle(image, imageCenter, 1, this.red, 3, 8, 0);
+        }
+
+        return image;
     }
 }

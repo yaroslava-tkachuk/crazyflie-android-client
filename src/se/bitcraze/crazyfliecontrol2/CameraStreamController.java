@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.Arrays;
 
-public class CameraStreamer implements Runnable {
+public class CameraStreamController implements Runnable {
 
     Socket socket;
     private int port = 5000;
@@ -36,10 +36,10 @@ public class CameraStreamer implements Runnable {
     private boolean run = false;
     private long startTime = 0;
 
-    CameraStreamer(MainActivity mainActivity) {
+
+    CameraStreamController(MainActivity mainActivity) {
         this.mainActivity = mainActivity;
         OpenCVLoader.initDebug();
-
     }
 
     private static int findFrameSequence(byte[] buffer, byte[] searchSequence) {
@@ -72,9 +72,19 @@ public class CameraStreamer implements Runnable {
         Mat imageMat = new Mat(imageBmp.getHeight(), imageBmp.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(imageBmp, imageMat);
 
-        // Detect and draw face
-        imageMat = this.mainActivity.getFaceDetector().detectFace(imageMat);
-//        imageMat = this.mainActivity.getFaceDetector().detectFrontalFace(imageMat);
+//        // Detect and draw face
+//        imageMat = this.mainActivity.getFaceDetector().detectFace(imageMat);
+
+        // Detect and draw circle
+        imageMat = this.mainActivity.getFaceDetector().detectCircle(imageMat);
+
+//        // Process face detection results and update PID parameters
+//        Rect detectedFace = this.mainActivity.getFaceDetector().getFace();
+//        this.mainActivity.getPidController().processData(imageMat, detectedFace);
+
+        // Process circle detection results and update flight controller parameters
+        double[] detectedCircle = this.mainActivity.getFaceDetector().getCircle();
+        this.mainActivity.getPidController().processData(imageMat, detectedCircle);
 
         // Convert Mat to Bitmap
         Bitmap imageWithFace = imageBmp;
@@ -111,7 +121,9 @@ public class CameraStreamer implements Runnable {
         // Set flags to false
         this.mainActivity.setCameraStreamEnabled(false);
         try {
-            this.socket.close();
+            if(this.socket != null){
+                this.socket.close();
+            }
         } catch (IOException ioException) {
             Log.e("Socket closing error", "Huston, we have problem: ", e);
         }
@@ -123,15 +135,18 @@ public class CameraStreamer implements Runnable {
     public void run() {
         this.run = true;
         this.startTime = System.currentTimeMillis();
+        this.mainActivity.getPidController().setTime(System.currentTimeMillis());
         byte[] imageBuffer = new byte[0];
         byte[] buffer = new byte[this.imageSizeBytes];
         byte[] frame;
         int bytesRead;
+
         try {
             this.socket = new Socket(this.ipAddress, this.port);
             this.socket.setSoTimeout(3000);
             DataInputStream inputStream = new DataInputStream(new BufferedInputStream(this.socket.getInputStream()));
             while (!Thread.interrupted() && this.run) {
+
                 // Read data from socket
                 bytesRead = inputStream.read(buffer, 0, this.imageSizeBytes);
                 imageBuffer = concatenateBuffers(imageBuffer, buffer, bytesRead);

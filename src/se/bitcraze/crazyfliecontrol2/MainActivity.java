@@ -28,8 +28,6 @@
 package se.bitcraze.crazyfliecontrol2;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 
@@ -89,11 +87,6 @@ import android.widget.Toast;
 
 import com.MobileAnarchy.Android.Widgets.Joystick.JoystickView;
 
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.objdetect.CascadeClassifier;
-
 public class MainActivity extends Activity {
 
     private static final String LOG_TAG = "CrazyflieControl";
@@ -125,7 +118,8 @@ public class MainActivity extends Activity {
     private ImageButton mRingEffectButton;
     private ImageButton mHeadlightButton;
     private ImageButton mBuzzerSoundButton;
-    private ImageButton mCameraViewButton;
+    private ImageButton mCameraStreamButton;
+    private ImageButton mAutonomousFlightButton;
     private File mCacheDir;
 
     private TextView mTextView_battery;
@@ -133,12 +127,16 @@ public class MainActivity extends Activity {
     private MainPresenter mPresenter;
 
     private boolean cameraStreamEnabled;
+    private boolean autonomousFlightEnabled;
     private ImageView mCameraImageView;
     private WifiManager wifiManager;
     private String networkSSID  = "Bitcraze AI-deck example";
     private FaceDetector faceDetector;
-    private CameraStreamer cameraStreamer;
+    private CameraStreamController cameraStreamController;
     private Thread cameraStream;
+    private AutonomousFlightController autonomousFlightController;
+    private Thread autonomousFlight;
+    private PidController pidController;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -178,11 +176,12 @@ public class MainActivity extends Activity {
         mConsoleTextView = (TextView) findViewById(R.id.console_textView);
         registerForContextMenu(mConsoleTextView);
 
-        //action buttons
+        // Action buttons
         mRingEffectButton = (ImageButton) findViewById(R.id.button_ledRing);
         mHeadlightButton = (ImageButton) findViewById(R.id.button_headLight);
         mBuzzerSoundButton = (ImageButton) findViewById(R.id.button_buzzerSound);
-        mCameraViewButton = (ImageButton) findViewById(R.id.button_cameraView);
+        mCameraStreamButton = (ImageButton) findViewById(R.id.button_cameraView);
+        mAutonomousFlightButton = (ImageButton) findViewById(R.id.button_autonomousFlight);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(this.getPackageName()+".USB_PERMISSION");
@@ -194,21 +193,30 @@ public class MainActivity extends Activity {
 
         setCacheDir();
 
-        // Set camera view to false
+        // Set camera view and autonomous flight to false
         this.setCameraStreamEnabled(false);
+        this.setAutonomousFlightEnabled(false);
 
         // Initialize Wi-Fi connection objects
         this.wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
-        // Initialize video streaming objects
-        mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
-        cameraStreamer = new CameraStreamer(this);
+        // Initialize video streaming and autonomous flight objects
+        this.pidController = new PidController();
+        this.mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
+        this.cameraStreamController = new CameraStreamController(this);
+        this.autonomousFlightController = new AutonomousFlightController(this);
         try {
             this.faceDetector = new FaceDetector(this);
-            mCameraViewButton.setEnabled(true);
-            mCameraViewButton.setOnClickListener(new View.OnClickListener() {
+            mCameraStreamButton.setEnabled(true);
+            mCameraStreamButton.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    setCameraView();
+                    setCameraStream();
+                }
+            });
+            mAutonomousFlightButton.setEnabled(true);
+            mAutonomousFlightButton.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    setAutonomousFlight();
                 }
             });
         }
@@ -217,25 +225,33 @@ public class MainActivity extends Activity {
         }
     }
 
-    // Video streaming methods
+    // Video streaming and autonomous flight methods
     public boolean getCameraStreamEnabled() {
         return this.cameraStreamEnabled;
+    }
+
+    public boolean getAutonomousFlightEnabled() {
+        return this.autonomousFlightEnabled;
     }
 
     public ImageView getCameraImageView() {
         return this.mCameraImageView;
     }
 
-    public Thread getCameraStream() {
-        return this.cameraStream;
-    }
-
     public FaceDetector getFaceDetector() {
         return this.faceDetector;
     }
 
+    public PidController getPidController() {
+        return this.pidController;
+    }
+
     public void setCameraStreamEnabled(boolean enabled) {
         this.cameraStreamEnabled = enabled;
+    }
+
+    public void setAutonomousFlightEnabled(boolean enabled) {
+        this.autonomousFlightEnabled = enabled;
     }
 
     protected void turnWiFiOn() {
@@ -268,8 +284,8 @@ public class MainActivity extends Activity {
         this.enableDroneNetwork();
     }
 
-    // On camera view button click
-    public void setCameraView() {
+    // On camera stream button click
+    public void setCameraStream() {
         this.setCameraStreamEnabled(!this.getCameraStreamEnabled());
         if (this.getCameraStreamEnabled()) {
             this.connectToDroneNetwork();
@@ -278,11 +294,40 @@ public class MainActivity extends Activity {
             while (System.currentTimeMillis() - startTime < 3000) {
                 continue;
             }
-            this.cameraStream = new Thread(this.cameraStreamer);
+            this.cameraStream = new Thread(this.cameraStreamController);
             this.cameraStream.start();
         }
         else {
+            if(this.getAutonomousFlightEnabled()) {
+                this.setAutonomousFlightEnabled(false);
+                this.autonomousFlight.interrupt();
+            }
             this.cameraStream.interrupt();
+        }
+    }
+
+    // On autonomous flight button click
+    public void setAutonomousFlight() {
+        this.setAutonomousFlightEnabled(!this.getAutonomousFlightEnabled());
+        if (this.getAutonomousFlightEnabled()) {
+            // Enable video streaming if it was disabled
+            if(!this.getCameraStreamEnabled()){
+                this.setCameraStream();
+            }
+            if(this.getCameraStreamEnabled()){
+                this.autonomousFlight = new Thread(this.autonomousFlightController);
+                this.autonomousFlight.start();
+            }
+            else {
+                this.setAutonomousFlightEnabled(false);
+                Toast.makeText(MainActivity.this,
+                        "Cannot enable autonomous flight without camera streaming.",
+                        Toast.LENGTH_SHORT).show();
+            }
+
+        }
+        else {
+            this.autonomousFlight.interrupt();
         }
     }
 
@@ -494,7 +539,8 @@ public class MainActivity extends Activity {
         mHeadlightButton.setEnabled(false);
         mBuzzerSoundButton.setEnabled(false);
         // Enable camera view and autonomous flight buttons
-        mCameraViewButton.setEnabled(true);
+        mCameraStreamButton.setEnabled(true);
+        mAutonomousFlightButton.setEnabled(true);
         if (mPreferences.getBoolean(PreferencesActivity.KEY_PREF_IMMERSIVE_MODE_BOOL, false)) {
             setHideyBar();
         }
@@ -880,20 +926,10 @@ public class MainActivity extends Activity {
         });
     }
 
-    public void setCameraViewButtonEnablement(final boolean enabled) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mCameraViewButton.setEnabled(enabled);
-            }
-        });
-    }
-
     public void disableButtonsAndResetBatteryLevel() {
         setRingEffectButtonEnablement(false);
         setHeadlightButtonEnablement(false);
         setBuzzerSoundButtonEnablement(false);
-        setCameraViewButtonEnablement(false);
         setBatteryLevel(-1.0f);
     }
 }
