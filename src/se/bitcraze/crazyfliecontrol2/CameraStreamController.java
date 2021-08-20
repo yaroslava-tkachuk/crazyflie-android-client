@@ -10,13 +10,9 @@ import android.widget.Toast;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfRect;
 import org.opencv.core.Rect;
-import org.opencv.core.Scalar;
-import org.opencv.imgproc.Imgproc;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -72,19 +68,25 @@ public class CameraStreamController implements Runnable {
         Mat imageMat = new Mat(imageBmp.getHeight(), imageBmp.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(imageBmp, imageMat);
 
-//        // Detect and draw face
-//        imageMat = this.mainActivity.getFaceDetector().detectFace(imageMat);
+        // Detect and draw face
+        imageMat = this.mainActivity.getFaceDetector().detectFace(imageMat);
 
-        // Detect and draw circle
-        imageMat = this.mainActivity.getFaceDetector().detectCircle(imageMat);
+        // Process face detection results and update PID parameters
+        Rect detectedFace = this.mainActivity.getFaceDetector().getFace();
+        if(this.mainActivity.getAutonomousFlightEnabled() && (detectedFace != null)) {
+            this.mainActivity.getSpeedController().goToFace(imageMat, detectedFace,
+                    mainActivity);
+        }
 
-//        // Process face detection results and update PID parameters
-//        Rect detectedFace = this.mainActivity.getFaceDetector().getFace();
-//        this.mainActivity.getPidController().processData(imageMat, detectedFace);
+//        // Detect and draw circle
+//        imageMat = this.mainActivity.getFaceDetector().detectCircle(imageMat);
 
-        // Process circle detection results and update flight controller parameters
-        double[] detectedCircle = this.mainActivity.getFaceDetector().getCircle();
-        this.mainActivity.getPidController().processData(imageMat, detectedCircle);
+//        // Process circle detection results and update flight controller parameters
+//        double[] detectedCircle = this.mainActivity.getFaceDetector().getCircle();
+//        if(this.mainActivity.getAutonomousFlightEnabled() && (detectedCircle != null)) {
+//            this.mainActivity.getSpeedController().goToCircle(imageMat, detectedCircle,
+//                    this.mainActivity);
+//        }
 
         // Convert Mat to Bitmap
         Bitmap imageWithFace = imageBmp;
@@ -135,7 +137,6 @@ public class CameraStreamController implements Runnable {
     public void run() {
         this.run = true;
         this.startTime = System.currentTimeMillis();
-        this.mainActivity.getPidController().setTime(System.currentTimeMillis());
         byte[] imageBuffer = new byte[0];
         byte[] buffer = new byte[this.imageSizeBytes];
         byte[] frame;

@@ -17,11 +17,14 @@ public class AutonomousFlightController implements Runnable {
     @Override
     public void run() {
         this.run = true;
-        this.mainActivity.getPidController().takeOff(this.mainActivity);
+        this.mainActivity.getSpeedController().takeOff(this.mainActivity);
         while(!Thread.interrupted() && this.run) {
-             this.mainActivity.getPidController().sendSpeedData(this.mainActivity);
+//             this.mainActivity.getSpeedController().sendSpeedData(this.mainActivity);
+             this.run = false;
         }
+        //this.mainActivity.getPidController().land(this.mainActivity);
         this.run = false;
-        this.mainActivity.getPidController().reset();
+//        this.mainActivity.getSpeedController().reset();
+        this.mainActivity.setAutonomousFlightEnabled(false);
     }
 }

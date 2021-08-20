@@ -90,6 +90,12 @@ public class FaceDetector {
         return cascadeFile;
     }
 
+    private void drawImageCenter(Mat image) {
+        // Draw image center.
+        Point imageCenter = new Point(Math.round(image.size().width/2), Math.round(image.size().height/2));
+        Imgproc.circle(image, imageCenter, 1, this.red, 3, 8, 0);
+    }
+
     public Mat detectFrontalFace(Mat imageMat) {
         MatOfRect frontalFaces = new MatOfRect();
         this.frontalFacesClassifier.detectMultiScale(imageMat, frontalFaces);
@@ -153,6 +159,7 @@ public class FaceDetector {
                 imageMat = this.detectRightProfileFace(imageMat);
             }
         }
+        this.drawImageCenter(imageMat);
         this.resetFlags();
 
         return imageMat;
@@ -193,8 +200,7 @@ public class FaceDetector {
             int radius = (int) Math.round(this.circle[2]);
             Imgproc.circle(image, center, radius, this.green, 3, 8, 0);
             // Draw image center.
-            Point imageCenter = new Point(Math.round(image.size().width/2), Math.round(image.size().height/2));
-            Imgproc.circle(image, imageCenter, 1, this.red, 3, 8, 0);
+            this.drawImageCenter(image);
         }
 
         return image;

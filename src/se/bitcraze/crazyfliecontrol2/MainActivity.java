@@ -134,9 +134,9 @@ public class MainActivity extends Activity {
     private FaceDetector faceDetector;
     private CameraStreamController cameraStreamController;
     private Thread cameraStream;
-    private AutonomousFlightController autonomousFlightController;
-    private Thread autonomousFlight;
-    private PidController pidController;
+//    private AutonomousFlightController autonomousFlightController;
+//    private Thread autonomousFlight;
+    private SpeedController speedController;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -201,10 +201,10 @@ public class MainActivity extends Activity {
         this.wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
         // Initialize video streaming and autonomous flight objects
-        this.pidController = new PidController();
+        this.speedController = new SpeedController();
         this.mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
         this.cameraStreamController = new CameraStreamController(this);
-        this.autonomousFlightController = new AutonomousFlightController(this);
+//        this.autonomousFlightController = new AutonomousFlightController(this);
         try {
             this.faceDetector = new FaceDetector(this);
             mCameraStreamButton.setEnabled(true);
@@ -242,8 +242,8 @@ public class MainActivity extends Activity {
         return this.faceDetector;
     }
 
-    public PidController getPidController() {
-        return this.pidController;
+    public SpeedController getSpeedController() {
+        return this.speedController;
     }
 
     public void setCameraStreamEnabled(boolean enabled) {
@@ -300,7 +300,7 @@ public class MainActivity extends Activity {
         else {
             if(this.getAutonomousFlightEnabled()) {
                 this.setAutonomousFlightEnabled(false);
-                this.autonomousFlight.interrupt();
+//                this.autonomousFlight.interrupt();
             }
             this.cameraStream.interrupt();
         }
@@ -314,11 +314,11 @@ public class MainActivity extends Activity {
             if(!this.getCameraStreamEnabled()){
                 this.setCameraStream();
             }
-            if(this.getCameraStreamEnabled()){
-                this.autonomousFlight = new Thread(this.autonomousFlightController);
-                this.autonomousFlight.start();
-            }
-            else {
+//            if(this.getCameraStreamEnabled()) {
+//                this.autonomousFlight = new Thread(this.autonomousFlightController);
+//                this.autonomousFlight.start();
+//            }
+            if(!this.getCameraStreamEnabled()) {
                 this.setAutonomousFlightEnabled(false);
                 Toast.makeText(MainActivity.this,
                         "Cannot enable autonomous flight without camera streaming.",
@@ -326,9 +326,9 @@ public class MainActivity extends Activity {
             }
 
         }
-        else {
-            this.autonomousFlight.interrupt();
-        }
+//        else {
+//            this.autonomousFlight.interrupt();
+//        }
     }
 
     private void initializeSounds() {

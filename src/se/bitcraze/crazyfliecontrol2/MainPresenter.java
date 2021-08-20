@@ -186,7 +186,7 @@ public class MainPresenter {
     public void sendPacket(CrtpPacket packet) {
         if (mCrazyflie != null) {
             mCrazyflie.sendPacket(packet);
-            Log.d(LOG_TAG, "!!!!!!!!!!!!!!!!SENDING DATA!!!!!!!!!!!!!!!!");
+            Log.d(LOG_TAG, "packet: " + packet);
         }
     }
 
@@ -208,13 +208,12 @@ public class MainPresenter {
                     float yaw = controller.getYaw();
                     float thrustAbsolute = controller.getThrustAbsolute();
                     boolean xmode = mainActivity.getControls().isXmode();
+
                     if (heightHold) {
                         float targetHeight = controller.getTargetHeight();
                         sendPacket(new ZDistancePacket(roll, pitch, yaw, targetHeight));
-                        Log.d(LOG_TAG, "!!!!!!!!!!!!!!!!SENDING DATA!!!!!!!!!!!!!!!! roll: " + roll + " pitch: " + pitch + " yaw: " + yaw + " thrust: " + thrustAbsolute);
                     } else {
                         sendPacket(new CommanderPacket(roll, pitch, yaw, (char) thrustAbsolute, xmode));
-                        Log.d(LOG_TAG, "!!!!!!!!!!!!!!!!SENDING DATA!!!!!!!!!!!!!!!! roll: " + roll + " pitch: " + pitch + " yaw: " + yaw + " thrust: " + thrustAbsolute);
                     }
                     try {
                         Thread.sleep(20);
