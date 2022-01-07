@@ -38,7 +38,7 @@ public class CameraStreamController implements Runnable {
         OpenCVLoader.initDebug();
     }
 
-    private static int findFrameSequence(byte[] buffer, byte[] searchSequence) {
+    public static int findFrameSequence(byte[] buffer, byte[] searchSequence) {
         if(searchSequence.length != 2) {
             return -1;
         }

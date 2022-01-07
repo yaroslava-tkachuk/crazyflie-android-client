@@ -5,7 +5,7 @@ import android.support.annotation.RequiresApi;
 
 public class AutonomousFlightController implements Runnable {
 
-    MainActivity mainActivity;
+    private MainActivity mainActivity;
     private boolean run = false;
 
 

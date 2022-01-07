@@ -34,8 +34,8 @@ public class SpeedController {
     }
 
     public void takeOff(MainActivity mainActivity) {
-        this.sendSpeed(mainActivity, -1, 0, 0, 47000, 800);
-        this.sendSpeed(mainActivity, -1, 0, 0, 45000, 1000);
+        this.sendSpeed(mainActivity, -1, 0, 0, 47000, 700);
+        this.sendSpeed(mainActivity, -1, 0, 0, 45000, 700);
     }
 
     public void land(MainActivity mainActivity) {
@@ -61,7 +61,7 @@ public class SpeedController {
             this.sendSpeed(mainActivity, 4, (float)0.5, 0, 45000, (int)turningTime);
         }
         // Go straight
-        this.sendSpeed(mainActivity, 0, 5, 0, 45000, 700);
+        this.sendSpeed(mainActivity, 0, 5, 0, 45000, 600);
         this.land(mainActivity);
         mainActivity.setAutonomousFlightEnabled(false);
     }
