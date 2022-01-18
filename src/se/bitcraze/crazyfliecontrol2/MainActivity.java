@@ -26,11 +26,9 @@
  */
 
 package se.bitcraze.crazyfliecontrol2;
-
 import java.io.File;
 import java.util.List;
 import java.util.Locale;
-
 import se.bitcraze.crazyflie.lib.crazyradio.Crazyradio;
 import se.bitcraze.crazyfliecontrol.controller.Controls;
 import se.bitcraze.crazyfliecontrol.controller.GamepadController;
@@ -38,7 +36,6 @@ import se.bitcraze.crazyfliecontrol.controller.GyroscopeController;
 import se.bitcraze.crazyfliecontrol.controller.IController;
 import se.bitcraze.crazyfliecontrol.controller.TouchController;
 import se.bitcraze.crazyfliecontrol.prefs.PreferencesActivity;
-
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -84,10 +81,24 @@ import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import com.MobileAnarchy.Android.Widgets.Joystick.JoystickView;
 
+
 public class MainActivity extends Activity {
+
+    /* Class for handling main Crazyflie Android Client logic.
+     *
+     * Responsible for:
+     *   - BLE connection;
+     *   - WiFi connection;
+     *   - Crazyflie UAV control using Joysticks;
+     *   - video streaming from AI-deck 1.1 camera;
+     *   - face detection in camera video stream images using Haar Cascade classifier;
+     *   - Crazyflie UAV autonomous way-point flight from starting point to the detected face. */
+
+    //----------------------------------------------------------------------------------------------
+    // Attributes
+    //----------------------------------------------------------------------------------------------
 
     private static final String LOG_TAG = "CrazyflieControl";
     private static final int MY_PERMISSIONS_REQUEST_LOCATION = 42;
@@ -138,8 +149,22 @@ public class MainActivity extends Activity {
 //    private Thread autonomousFlight;
     private SpeedController speedController;
 
+    //----------------------------------------------------------------------------------------------
+    // End Attributes
+    //----------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------
+    // Constructors
+    //----------------------------------------------------------------------------------------------
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
+        /* Method for initializing MainActivity attributes.
+         *
+         * IN:
+         * savedInstanceState - Bundle - saved instance state. */
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -156,17 +181,18 @@ public class MainActivity extends Activity {
         mControls = new Controls(this, mPreferences);
         mControls.setDefaultPreferenceValues(getResources());
 
-        //Default controller
+        // Default controller.
         mJoystickViewLeft = (JoystickView) findViewById(R.id.joystick_left);
         mJoystickViewRight = (JoystickView) findViewById(R.id.joystick_right);
         mJoystickViewRight.setLeft(false);
-        mController = new TouchController(mControls, this, mJoystickViewLeft, mJoystickViewRight);
+        mController =
+                new TouchController(mControls, this, mJoystickViewLeft, mJoystickViewRight);
 
-        //initialize gamepad controller
+        // Initialize gamepad controller.
         mGamepadController = new GamepadController(mControls, this, mPreferences);
         mGamepadController.setDefaultPreferenceValues(getResources());
 
-        //initialize buttons
+        // Initialize buttons.
         mToggleConnectButton = (ImageButton) findViewById(R.id.imageButton_connect);
         initializeMenuButtons();
 
@@ -176,7 +202,7 @@ public class MainActivity extends Activity {
         mConsoleTextView = (TextView) findViewById(R.id.console_textView);
         registerForContextMenu(mConsoleTextView);
 
-        // Action buttons
+        // Action buttons.
         mRingEffectButton = (ImageButton) findViewById(R.id.button_ledRing);
         mHeadlightButton = (ImageButton) findViewById(R.id.button_headLight);
         mBuzzerSoundButton = (ImageButton) findViewById(R.id.button_buzzerSound);
@@ -193,14 +219,15 @@ public class MainActivity extends Activity {
 
         setCacheDir();
 
-        // Set camera view and autonomous flight to false
+        // Set camera view and autonomous flight to false.
         this.setCameraStreamEnabled(false);
         this.setAutonomousFlightEnabled(false);
 
-        // Initialize Wi-Fi connection objects
-        this.wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        // Initialize Wi-Fi connection objects.
+        this.wifiManager =
+                (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
 
-        // Initialize video streaming and autonomous flight objects
+        // Initialize video streaming and autonomous flight objects.
         this.speedController = new SpeedController();
         this.mCameraImageView = (ImageView) findViewById(R.id.camera_imageView);
         this.cameraStreamController = new CameraStreamController(this);
@@ -221,11 +248,19 @@ public class MainActivity extends Activity {
             });
         }
         catch(Exception e) {
-            Toast.makeText(this.getApplicationContext(), "Failed to load OpenCV resources.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this.getApplicationContext(), "Failed to load OpenCV resources.",
+                    Toast.LENGTH_SHORT).show();
         }
     }
 
-    // Video streaming and autonomous flight methods
+    //----------------------------------------------------------------------------------------------
+    // Constructors
+    //----------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------
+    // Getters
+    //----------------------------------------------------------------------------------------------
+
     public boolean getCameraStreamEnabled() {
         return this.cameraStreamEnabled;
     }
@@ -246,6 +281,14 @@ public class MainActivity extends Activity {
         return this.speedController;
     }
 
+    //----------------------------------------------------------------------------------------------
+    // End Getters
+    //----------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------
+    // Setters
+    //----------------------------------------------------------------------------------------------
+
     public void setCameraStreamEnabled(boolean enabled) {
         this.cameraStreamEnabled = enabled;
     }
@@ -254,7 +297,22 @@ public class MainActivity extends Activity {
         this.autonomousFlightEnabled = enabled;
     }
 
+    //----------------------------------------------------------------------------------------------
+    // End Setters
+    //----------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------
+    // Methods
+    //----------------------------------------------------------------------------------------------
+
+    //----------------------------------------------------------------------------------------------
+    // Video Streaming and Autonomous Flight Methods
+    //----------------------------------------------------------------------------------------------
+
     protected void turnWiFiOn() {
+
+        /* Method for turning on Android device's WiFi. */
+
         if (!this.wifiManager.isWifiEnabled()) {
             Toast.makeText(getApplicationContext(),
                     "Turning on Wi-Fi to enable video streaming.", Toast.LENGTH_SHORT).show();
@@ -263,6 +321,9 @@ public class MainActivity extends Activity {
     }
 
     public void enableDroneNetwork() {
+
+        /* Method for enabling Crazyflie network connection. */
+
         List<WifiConfiguration> list = this.wifiManager.getConfiguredNetworks();
         for(WifiConfiguration wifiConfig : list) {
             if(wifiConfig.SSID != null && wifiConfig.SSID.equals("\"" + networkSSID + "\"")) {
@@ -276,6 +337,9 @@ public class MainActivity extends Activity {
     }
 
     public void connectToDroneNetwork() {
+
+        /* Method for connecting to Crazyflie network. */
+
         this.turnWiFiOn();
         WifiConfiguration wifiConfiguration = new WifiConfiguration();
         wifiConfiguration.SSID = "\"" + this.networkSSID + "\"";
@@ -284,12 +348,14 @@ public class MainActivity extends Activity {
         this.enableDroneNetwork();
     }
 
-    // On camera stream button click
     public void setCameraStream() {
+
+        /* Method for handling "camera stream button click" event. */
+
         this.setCameraStreamEnabled(!this.getCameraStreamEnabled());
         if (this.getCameraStreamEnabled()) {
             this.connectToDroneNetwork();
-            // Wait 3 seconds for the connection to get established
+            // Wait 3 seconds for the connection to get established.
             long startTime = System.currentTimeMillis();
             while (System.currentTimeMillis() - startTime < 3000) {
                 continue;
@@ -306,11 +372,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    // On autonomous flight button click
     public void setAutonomousFlight() {
+
+        /* Method for handling "autonomous flight button click" event. */
+
         this.setAutonomousFlightEnabled(!this.getAutonomousFlightEnabled());
         if (this.getAutonomousFlightEnabled()) {
-            // Enable video streaming if it was disabled
+            // Enable video streaming if it was disabled.
             if(!this.getCameraStreamEnabled()){
                 this.setCameraStream();
             }
@@ -330,6 +398,10 @@ public class MainActivity extends Activity {
 //            this.autonomousFlight.interrupt();
 //        }
     }
+
+    //----------------------------------------------------------------------------------------------
+    // End Video Streaming and Autonomous Flight Methods
+    //----------------------------------------------------------------------------------------------
 
     private void initializeSounds() {
         this.setVolumeControlStream(AudioManager.STREAM_MUSIC);
@@ -932,4 +1004,8 @@ public class MainActivity extends Activity {
         setBuzzerSoundButtonEnablement(false);
         setBatteryLevel(-1.0f);
     }
+
+    //----------------------------------------------------------------------------------------------
+    // End Methods
+    //----------------------------------------------------------------------------------------------
 }
